@@ -1,0 +1,7 @@
+*.env
+local/*.env
+testes/
+*.terraform
+*.tfstate
+terraform.tfvars
+.aws/

@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+
+metadata:
+  name: acta-prod
+  namespace: argocd
+
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/AppActa/acta-platform.git
+    targetRevision: main
+    path: apps
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: acta-prod
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
