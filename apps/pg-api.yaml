@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: acta-pg-api
+  annotations:
+    # reinicia os pods quando o infisical atualizar os secrets
+    secrets.infisical.com/auto-reload: "true"
+  labels:
+    app.kubernetes.io/name: acta-pg-api
+    app.kubernetes.io/part-of: acta
+
+spec:
+  replicas: 3
+  revisionHistoryLimit: 3
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: acta-pg-api
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: acta-pg-api
+        app.kubernetes.io/part-of: acta
+
+    spec:
+      containers:
+        - name: acta-pg-api
+          image: ghcr.io/appacta/acta-pg-api@sha256:760a2c439bc64494e69342166338a0f934b72354ee0a352444a596bbd6e6427d
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          envFrom:
+            - secretRef:
+                name: acta-pg-api-env
+
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/secrets/firebase/service-account.json
+
+          # monta o json do firebase como arquivo somente leitura
+          volumeMounts:
+            - name: firebase-admin
+              mountPath: /var/run/secrets/firebase
+              readOnly: true
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # verifica se o processo continua aceitando conexoes na porta
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+      volumes:
+        - name: firebase-admin
+          secret:
+            secretName: firebase-admin
+            items:
+              - key: service-account.json
+                path: service-account.json
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: acta-pg-api
+  labels:
+    app.kubernetes.io/name: acta-pg-api
+    app.kubernetes.io/part-of: acta
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: acta-pg-api
+
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
