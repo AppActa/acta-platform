@@ -1,0 +1,85 @@
+name: teste-infra
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "argocd/**"
+      - "infra/aws/**"
+      - ".github/workflows/teste-infra.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "argocd/**"
+      - "infra/aws/**"
+      - ".github/workflows/teste-infra.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validar-kustomize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: baixar codigo
+        uses: actions/checkout@v4
+
+      - name: instalar kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: renderizar manifests
+        run: kubectl kustomize apps > manifests-rendered.yaml
+
+      - name: validar schemas k8s
+        uses: docker://ghcr.io/yannh/kubeconform:v0.6.7
+        with:
+          entrypoint: /kubeconform
+          args: -strict -summary -skip InfisicalSecret /github/workspace/manifests-rendered.yaml
+
+  validar-terraform:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: baixar codigo
+        uses: actions/checkout@v4
+
+      - name: instalar terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.13.3
+
+      - name: verificar formatacao
+        run: terraform -chdir=infra/aws fmt -check
+
+      - name: inicializar sem backend
+        run: terraform -chdir=infra/aws init -backend=false -input=false
+
+      - name: validar terraform
+        run: terraform -chdir=infra/aws validate
+
+  validar-argocd:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: baixar codigo
+        uses: actions/checkout@v4
+
+      - name: validar estrutura da application
+        uses: mikefarah/yq@v4.52.1
+        with:
+          cmd: >-
+            yq -e '
+              .apiVersion == "argoproj.io/v1alpha1" and
+              .kind == "Application" and
+              .metadata.namespace == "argocd" and
+              .spec.source.repoURL == "https://github.com/AppActa/acta-platform.git" and
+              .spec.source.targetRevision == "main" and
+              .spec.source.path == "apps" and
+              .spec.destination.server == "https://kubernetes.default.svc" and
+              .spec.destination.namespace == "acta-prod" and
+              .spec.syncPolicy.automated.prune == true and
+              .spec.syncPolicy.automated.selfHeal == true
+            ' argocd/prod.yaml
