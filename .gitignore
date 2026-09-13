@@ -2,6 +2,8 @@
 local/*.env
 testes/
 *.terraform
-*.tfstate
+*.tfstate*
+*.tfplan
 terraform.tfvars
 .aws/
+.terraform/
