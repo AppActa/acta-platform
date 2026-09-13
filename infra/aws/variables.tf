@@ -49,7 +49,7 @@ variable "instance_type" {
 variable "vpc_cidr" {
   description = "CIDR privado da VPC."
   type        = string
-  default     = "10.42.0.0/16"
+  default     = "10.50.0.0/16"
 
   validation {
     condition     = can(cidrhost(var.vpc_cidr, 0))
@@ -62,7 +62,7 @@ variable "vpc_cidr" {
 variable "public_subnet_cidr" {
   description = "CIDR da subnet pública. Deve estar contido em vpc_cidr."
   type        = string
-  default     = "10.42.1.0/24"
+  default     = "10.50.1.0/24"
 
   validation {
     condition     = can(cidrhost(var.public_subnet_cidr, 0))

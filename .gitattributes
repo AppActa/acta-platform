@@ -1,0 +1,2 @@
+*.yaml linguist-detectable
+*.sh text eol=lf

@@ -17,6 +17,13 @@ spec:
     server: https://kubernetes.default.svc
     namespace: acta-prod
 
+  # a versão atual do operador remove o bloco antigo syncConfig
+  ignoreDifferences:
+    - group: secrets.infisical.com
+      kind: InfisicalSecret
+      jsonPointers:
+        - /spec/syncConfig
+
   syncPolicy:
     automated:
       prune: true
