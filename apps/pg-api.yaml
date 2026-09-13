@@ -11,8 +11,8 @@ metadata:
     app.kubernetes.io/part-of: acta
 
 spec:
-  replicas: 3
-  revisionHistoryLimit: 3
+  replicas: 1
+  revisionHistoryLimit: 1
 
   selector:
     matchLabels:
@@ -52,7 +52,7 @@ spec:
           startupProbe:
             tcpSocket:
               port: http
-            periodSeconds: 5
+            periodSeconds: 10
             failureThreshold: 60
 
           readinessProbe:
