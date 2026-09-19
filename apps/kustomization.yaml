@@ -5,4 +5,6 @@ namespace: acta-prod
 
 resources:
   - pg-api.yaml
+  - mongo-api.yaml
   - config/pg-api-secrets.yaml
+  - config/mongo-api-secrets.yaml
