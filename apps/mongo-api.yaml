@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: acta-mongo-api
-          image: ghcr.io/appacta/acta-mongo-api:sha-695a7ddd23c317234cc0c3d447ecfdcb5504b3eb
+          image: ghcr.io/appacta/acta-mongo-api:sha-f03282bcbcdf059ef614107fb6c30a87f7808588
           imagePullPolicy: IfNotPresent
 
           ports:
