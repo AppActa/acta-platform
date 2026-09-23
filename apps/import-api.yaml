@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: acta-import-api
+  annotations:
+    # reinicia os pods quando o infisical atualizar os secrets
+    secrets.infisical.com/auto-reload: "true"
+  labels:
+    app.kubernetes.io/name: acta-import-api
+    app.kubernetes.io/part-of: acta
+
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: acta-import-api
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: acta-import-api
+        app.kubernetes.io/part-of: acta
+
+    spec:
+      containers:
+        - name: acta-import-api
+          image: ghcr.io/appacta/acta-import-api:sha-23b88f8b6d2c4cd3625da6366ae669a5dd8ba8e3
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          envFrom:
+            - secretRef:
+                name: acta-import-api-env
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: acta-import-worker
+  annotations:
+    # reinicia os pods quando o infisical atualizar os secrets
+    secrets.infisical.com/auto-reload: "true"
+  labels:
+    app.kubernetes.io/name: acta-import-worker
+    app.kubernetes.io/part-of: acta
+
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: acta-import-worker
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: acta-import-worker
+        app.kubernetes.io/part-of: acta
+
+    spec:
+      containers:
+        - name: acta-import-worker
+          image: ghcr.io/appacta/acta-import-api:sha-23b88f8b6d2c4cd3625da6366ae669a5dd8ba8e3
+          imagePullPolicy: IfNotPresent
+          command: ["python", "worker.py"]
+
+          envFrom:
+            - secretRef:
+                name: acta-import-api-env
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: acta-import-api
+  labels:
+    app.kubernetes.io/name: acta-import-api
+    app.kubernetes.io/part-of: acta
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: acta-import-api
+
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP
