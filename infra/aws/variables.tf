@@ -38,6 +38,7 @@ variable "admin_cidr" {
 variable "instance_type" {
   description = "Tipo da instância EC2 x86_64 que executará o K3s."
   type        = string
+  default     = "t3.medium"
 
   validation {
     condition     = length(trimspace(var.instance_type)) > 0

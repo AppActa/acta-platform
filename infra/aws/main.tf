@@ -116,6 +116,22 @@ resource "aws_security_group" "k3s" {
     cidr_blocks = [var.admin_cidr] # apenas para esse ip
   }
 
+  ingress {
+    description = "HTTP publico"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS publico"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # libera api do kubernetes
   ingress {
     description = "API Kubernetes"

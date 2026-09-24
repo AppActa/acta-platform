@@ -21,3 +21,12 @@ output "ssh_command" {
   description = "Modelo de comando para acessar a instância usando a chave privada correspondente."
   value       = "ssh -i <caminho-da-chave-privada> ubuntu@${aws_eip.k3s.public_ip}"
 }
+
+output "api_urls" {
+  description = "URLs HTTPS publicadas pelo Traefik."
+  value = {
+    pg_api     = "https://pg-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+    mongo_api  = "https://mongo-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+    import_api = "https://import-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+  }
+}

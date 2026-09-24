@@ -46,14 +46,16 @@ spec:
             failureThreshold: 60
 
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /docs
               port: http
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
 
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /docs
               port: http
             periodSeconds: 20
             timeoutSeconds: 5

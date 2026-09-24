@@ -1,0 +1,85 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pg-api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: pg-api.0-0-0-0.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: acta-pg-api
+                port:
+                  number: 8080
+  tls:
+    - hosts:
+        - pg-api.0-0-0-0.sslip.io
+      secretName: pg-api-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mongo-api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: mongo-api.0-0-0-0.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: acta-mongo-api
+                port:
+                  number: 8081
+  tls:
+    - hosts:
+        - mongo-api.0-0-0-0.sslip.io
+      secretName: mongo-api-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: import-api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: import-api.0-0-0-0.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: acta-import-api
+                port:
+                  number: 8000
+  tls:
+    - hosts:
+        - import-api.0-0-0-0.sslip.io
+      secretName: import-api-tls
