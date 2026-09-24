@@ -1,84 +1,128 @@
-# faz o script parar se algum comando falhar
+# para o script se algum comando falhar
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
-# confirma a conta da aws e prepara o terraform
+# confirma a conta da AWS antes de criar os recursos
 aws sts get-caller-identity
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Set-Location .\infra\aws
+# prepara o terraform e mostra o que será criado
+Push-Location .\infra\aws
+try {
+    terraform init
+    terraform validate
+    terraform plan
 
-terraform init
-terraform validate
-terraform plan -out acta.tfplan
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    if ((Read-Host "Digite APLICAR para criar os recursos na AWS") -cne "APLICAR") {
+        Write-Host "Implantacao cancelada"
+        exit
+    }
 
-$confirmation = Read-Host "Digite APLICAR para criar os recursos na AWS"
-
-if ($confirmation -cne "APLICAR") {
-    Set-Location ..\..
-    Write-Host "Implantacao cancelada"
-    exit
+    terraform apply -auto-approve
+    $publicIp = (terraform output -raw public_ip).Trim()
 }
-
-terraform apply acta.tfplan
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-$publicIp = (terraform output -raw public_ip).Trim()
-
-Set-Location ..\..
+finally {
+    Pop-Location
+}
 
 # espera a ec2 liberar o acesso ssh
-while (-not (Test-NetConnection $publicIp -Port 22 -InformationLevel Quiet)) {
-    Start-Sleep -Seconds 10
-}
+$sshDeadline = (Get-Date).AddMinutes(10)
+do {
+    if (Test-NetConnection $publicIp -Port 22 -InformationLevel Quiet) { break }
+    if ((Get-Date) -ge $sshDeadline) { throw "SSH nao ficou disponivel em 10 minutos" }
+    Start-Sleep -Seconds 5
+} while ($true)
 
-# instala o argocd e o infisical dentro da ec2
+# instala k3s, argocd, cert-manager e infisical
 Get-Content .\infra\aws\bootstrap-k3s.sh -Raw |
-    ssh -i .\.aws\labsuser.pem -o StrictHostKeyChecking=accept-new "ubuntu@$publicIp" "tr -d '\r' | sudo bash -s"
+    ssh -i .\.aws\labsuser.pem -o StrictHostKeyChecking=accept-new "ubuntu@$publicIp" "sudo bash -s"
 
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-# baixa o kubeconfig do k3s
-$kubeconfigPath = "$env:USERPROFILE\.kube\acta-aws.yaml"
-
-New-Item "$env:USERPROFILE\.kube" -ItemType Directory -Force | Out-Null
+# baixa o kubeconfig para controlar o cluster pelo computador
+$kubeconfigPath = Join-Path $env:USERPROFILE ".kube\acta-aws.yaml"
+New-Item (Split-Path $kubeconfigPath) -ItemType Directory -Force | Out-Null
 
 $kubeconfig = ssh -i .\.aws\labsuser.pem "ubuntu@$publicIp" "sudo cat /etc/rancher/k3s/k3s.yaml"
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-$kubeconfig | Set-Content $kubeconfigPath -Encoding utf8
-
-(Get-Content $kubeconfigPath -Raw).Replace(
-    "https://127.0.0.1:6443",
-    "https://${publicIp}:6443"
-) | Set-Content $kubeconfigPath -Encoding utf8
+$kubeconfig.Replace("https://127.0.0.1:6443", "https://${publicIp}:6443") |
+    Set-Content $kubeconfigPath -Encoding utf8
 
 $env:KUBECONFIG = $kubeconfigPath
-kubectl get nodes
+kubectl wait --for=condition=Ready node --all --timeout=10m
 
-# cria a credencial usada pelo infisical
+# recebe as credenciais do Infisical sem salvar em arquivo
 $clientId = Read-Host "Client ID do Infisical"
-$clientSecret = Read-Host "Client Secret do Infisical" -AsSecureString
-$clientSecret = [Net.NetworkCredential]::new("", $clientSecret).Password
+$secureClientSecret = Read-Host "Client Secret do Infisical" -AsSecureString
+$credential = [Net.NetworkCredential]::new("", $secureClientSecret)
 
-kubectl create secret generic infisical-universal-auth `
-    -n acta-prod `
-    --from-literal="clientId=$clientId" `
-    --from-literal="clientSecret=$clientSecret"
+$secretManifest = @{
+    apiVersion = "v1"
+    kind = "Secret"
+    metadata = @{
+        name = "infisical-universal-auth"
+        namespace = "acta-prod"
+    }
+    type = "Opaque"
+    stringData = @{
+        clientId = $clientId
+        clientSecret = $credential.Password
+    }
+} | ConvertTo-Json -Depth 5
 
-$clientSecret = $null
+$secretManifest | kubectl apply -f -
+$secretManifest = $null
+$credential = $null
+$secureClientSecret = $null
 
-# entrega a aplicacao para o argocd
+# entrega os manifests das aplicações para o Argo CD
 kubectl apply -f .\argocd\prod.yaml
 
-Write-Host "Aguardando o Argo CD e o Infisical..."
-Start-Sleep -Seconds 90
+# cria os endereços sslip.io usando o Elastic IP
+$ipHost = $publicIp.Replace(".", "-")
+$hosts = @{
+    "pg-api" = "pg-api.$ipHost.sslip.io"
+    "mongo-api" = "mongo-api.$ipHost.sslip.io"
+    "import-api" = "import-api.$ipHost.sslip.io"
+}
 
+# troca os hosts genéricos pelos endereços finais
+$patches = foreach ($name in $hosts.Keys) {
+    @{
+        target = @{ kind = "Ingress"; name = $name }
+        patch = @"
+- op: replace
+  path: /spec/rules/0/host
+  value: $($hosts[$name])
+- op: replace
+  path: /spec/tls/0/hosts/0
+  value: $($hosts[$name])
+"@
+    }
+}
+
+$applicationPatch = @{
+    spec = @{
+        source = @{
+            kustomize = @{ patches = @($patches) }
+        }
+    }
+} | ConvertTo-Json -Depth 8 -Compress
+
+kubectl patch application acta-prod -n argocd --type merge --patch $applicationPatch
+kubectl wait application/acta-prod -n argocd --for=jsonpath='{.status.sync.status}'=Synced --timeout=5m
+
+# espera as apis, o worker e os certificados ficarem prontos
 kubectl rollout status deployment/acta-pg-api -n acta-prod --timeout=15m
-kubectl get applications -n argocd
-kubectl get pods -n acta-prod
+kubectl rollout status deployment/acta-mongo-api -n acta-prod --timeout=15m
+kubectl rollout status deployment/acta-import-api -n acta-prod --timeout=15m
+kubectl rollout status deployment/acta-import-worker -n acta-prod --timeout=15m
+kubectl wait certificate --all -n acta-prod --for=condition=Ready --timeout=10m
 
-Write-Host "Implantação concluída"
-Write-Host "Para abrir o Argo CD:"
-Write-Host "kubectl port-forward svc/argocd-server -n argocd 9000:443"
+# chama os endereços públicos para confirmar que estão respondendo
+Invoke-WebRequest "https://$($hosts['pg-api'])/api/v1/health" -UseBasicParsing
+Invoke-WebRequest "https://$($hosts['mongo-api'])/api/v1/health" -UseBasicParsing
+Invoke-WebRequest "https://$($hosts['import-api'])/docs" -UseBasicParsing
+
+# mostra o estado final da implantação
+kubectl get applications -n argocd
+kubectl get pods,secrets,ingress,certificate -n acta-prod
+
+Write-Host "Implantacao concluida"
+terraform -chdir=infra/aws output api_urls
