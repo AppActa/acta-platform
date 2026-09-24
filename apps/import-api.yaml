@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: acta-import-api
-          image: ghcr.io/appacta/acta-import-api:sha-8293aafd78197b84504cd7d1474abc3552d53af8
+          image: ghcr.io/appacta/acta-import-api:sha-e0e3c18cdac42eb4abfe5a992d524a2efeb39f9c
           imagePullPolicy: IfNotPresent
 
           ports:
@@ -96,7 +96,7 @@ spec:
     spec:
       containers:
         - name: acta-import-worker
-          image: ghcr.io/appacta/acta-import-api:sha-8293aafd78197b84504cd7d1474abc3552d53af8
+          image: ghcr.io/appacta/acta-import-api:sha-e0e3c18cdac42eb4abfe5a992d524a2efeb39f9c
           imagePullPolicy: IfNotPresent
           command: ["python", "worker.py"]
 
