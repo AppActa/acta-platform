@@ -11,7 +11,7 @@ O fluxo separa duas responsabilidades:
 1. o Terraform cria a rede, a instância EC2 e o acesso ao cluster;
 2. o Argo CD acompanha a pasta [`apps/`](apps/) na branch `main` e reconcilia os workloads no namespace `acta-prod`.
 
-Atualmente, o estado GitOps inclui `acta-pg-api`, `acta-mongo-api`, `acta-import-api` e o worker de importação. As imagens são obtidas do GitHub Container Registry com tags imutáveis baseadas no SHA de cada serviço.
+O estado GitOps inclui AI, MCP, as APIs e o worker de importação. O deploy configura o AI para acessar o MCP em `https://mcp.<ip-com-hifens>.sslip.io/mcp`. As imagens e os segredos necessários devem estar disponíveis no GHCR e no Infisical.
 
 ## ✨ Capacidades
 
@@ -63,7 +63,7 @@ instance_type = "t3.medium"
 
 O arquivo `terraform.tfvars`, estados, planos, credenciais AWS e chaves privadas são ignorados pelo Git. Nunca versione esses arquivos.
 
-Os manifests `InfisicalSecret` contêm apenas referências. Os valores reais de banco, Firebase, Cloudinary, Redis e tokens devem permanecer no Infisical.
+Os manifests `InfisicalSecret` contêm somente referências. Os valores reais de banco, Firebase, Cloudinary, Redis e tokens devem permanecer no Infisical. Antes de sincronizar AI e MCP, confirme que os caminhos planejados e os nomes referenciados existem no projeto Infisical autorizado. Não copie valores para o Git ou para a documentação.
 
 ## 🧪 Validação local
 
@@ -88,7 +88,7 @@ Esses comandos verificam formatação e configuração estática. Eles não conf
 > [!CAUTION]
 > O processo cria recursos cobráveis na AWS. Revise o `terraform plan`, a conta selecionada, a região e os custos antes de confirmar a aplicação.
 
-Na raiz do repositório, execute:
+O procedimento detalhado, incluindo pré-requisitos, verificações e diagnóstico, está em [`PASSO_A_PASSO.md`](PASSO_A_PASSO.md). Na raiz do repositório, execute:
 
 ```powershell
 .\infra\aws\deploy.ps1
@@ -103,7 +103,7 @@ O script:
 5. cria o Secret de autenticação do Infisical a partir de entradas interativas;
 6. aplica [`argocd/prod.yaml`](argocd/prod.yaml) e ajusta os hosts `sslip.io` ao Elastic IP;
 7. aguarda sincronização, workloads e certificados;
-8. consulta os endpoints públicos e exibe o estado final.
+8. consulta os endpoints públicos da PG API, Mongo API, Import API e a rota `/health` do MCP e exibe o endereço `/mcp` do MCP.
 
 O kubeconfig obtido do servidor é salvo em `~/.kube/acta-aws.yaml`. A chave privada esperada pelo script fica em `.aws/labsuser.pem`; esse caminho é local e está ignorado pelo Git.
 
@@ -134,12 +134,14 @@ O Argo CD usa `prune` para remover recursos excluídos do estado desejado e `sel
 
 | Componente | Porta | Verificação de disponibilidade |
 | --- | ---: | --- |
+| `acta-ai` | 8200 | `GET /health` (interno ao cluster; sem Ingress) |
+| `acta-mcp` | 8000 | `GET /health` público; protocolo MCP em `/mcp` |
 | `acta-pg-api` | 8080 | `GET /api/v1/health` |
 | `acta-mongo-api` | 8081 | `GET /api/v1/health` |
 | `acta-import-api` | 8000 | `GET /docs` |
 | `acta-import-worker` | — | Processo RQ sem Service HTTP |
 
-Cada workload usa imagem imutável do GHCR, requests e limits de CPU/memória. As APIs possuem probes de inicialização, prontidão e vida configuradas nos respectivos manifests.
+Os manifests das APIs PG, Mongo e Import e do worker definem requests e limits de CPU/memória. AI e MCP têm Services internos e probes; as imagens e referências Infisical precisam estar disponíveis para os Deployments iniciarem corretamente. Durante a implantação, `infra/aws/deploy.ps1` deriva o host MCP do IP público do Terraform, configura `ACTA_MCP_URL` no Deployment do AI para `https://mcp.<ip-com-hifens>.sslip.io/mcp` e imprime a URL resultante. O cliente AI envia a chave Bearer configurada e o contexto de usuário/empresa esperado pelo MCP.
 
 ## 🔐 Segredos e acesso de rede
 
@@ -170,9 +172,12 @@ flowchart LR
 
     K3S --> PG[acta-pg-api]
     K3S --> MG[acta-mongo-api]
+    K3S --> AI[acta-ai]
+    AI  --> |HTTPS /mcp| MCP[acta-mcp]
     K3S --> IM[acta-import-api e worker]
 
     NET[Internet] --> ING[Traefik e cert-manager]
+    ING --> MCP
     ING --> PG
     ING --> MG
     ING --> IM
@@ -188,6 +193,7 @@ Terraform prepara a infraestrutura e o cluster. Ele não substitui o Argo CD: o 
 │   └── teste-infra.yml       # CI de validação da infraestrutura
 ├── apps/
 │   ├── config/               # referências de segredos no Infisical
+│   ├── ai.yaml, mcp.yaml     # Deployments e Services de AI/MCP
 │   ├── *-api.yaml            # Deployments e Services
 │   ├── ingress.yaml          # HTTPS, hosts e certificados
 │   └── kustomization.yaml    # agrega o estado de produção

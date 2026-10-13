@@ -83,3 +83,27 @@ spec:
     - hosts:
         - import-api.0-0-0-0.sslip.io
       secretName: import-api-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcp
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: mcp.0-0-0-0.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: acta-mcp
+                port:
+                  number: 8000
+  tls:
+    - hosts:
+        - mcp.0-0-0-0.sslip.io
+      secretName: mcp-tls

@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: acta-mcp
+  annotations:
+    secrets.infisical.com/auto-reload: "true"
+  labels:
+    app.kubernetes.io/name: acta-mcp
+    app.kubernetes.io/part-of: acta
+
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: acta-mcp
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: acta-mcp
+        app.kubernetes.io/part-of: acta
+
+    spec:
+      containers:
+        - name: acta-mcp
+          image: ghcr.io/appacta/acta-mcp:sha-62ed32c186a82454c1cb911be5383fcc7d16024b
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+
+          envFrom:
+            - secretRef:
+                name: acta-mcp-env
+
+          env:
+            - name: ACTA_ENV
+              value: production
+            - name: ACTA_AUTH_MODE
+              value: api_key
+            - name: ACTA_HOST
+              value: 0.0.0.0
+            - name: PORT
+              value: "8000"
+            - name: MONGODB_DATABASE
+              value: acta
+            - name: QDRANT_FAQ_COLLECTION
+              value: acta_faq
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: acta-mcp
+  labels:
+    app.kubernetes.io/name: acta-mcp
+    app.kubernetes.io/part-of: acta
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: acta-mcp
+
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+      protocol: TCP

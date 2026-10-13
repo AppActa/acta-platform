@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: acta-ai
+  annotations:
+    secrets.infisical.com/auto-reload: "true"
+  labels:
+    app.kubernetes.io/name: acta-ai
+    app.kubernetes.io/part-of: acta
+
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: acta-ai
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: acta-ai
+        app.kubernetes.io/part-of: acta
+
+    spec:
+      containers:
+        - name: acta-ai
+          image: ghcr.io/appacta/acta-ai:c308b670d003b36585f53eea084a4b228356aea5
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8200
+              protocol: TCP
+
+          envFrom:
+            - secretRef:
+                name: acta-ai-env
+
+          env:
+            - name: PORT
+              value: "8200"
+
+            # deploy.ps1 substitui o template pela url do mcp
+            - name: ACTA_MCP_URL
+              value: https://mcp.0-0-0-0.sslip.io/mcp
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: acta-ai
+  labels:
+    app.kubernetes.io/name: acta-ai
+    app.kubernetes.io/part-of: acta
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app.kubernetes.io/name: acta-ai
+
+  ports:
+    - name: http
+      port: 8200
+      targetPort: http
+      protocol: TCP

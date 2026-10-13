@@ -80,6 +80,7 @@ $hosts = @{
     "pg-api" = "pg-api.$ipHost.sslip.io"
     "mongo-api" = "mongo-api.$ipHost.sslip.io"
     "import-api" = "import-api.$ipHost.sslip.io"
+    "mcp" = "mcp.$ipHost.sslip.io"
 }
 
 # troca os hosts genéricos pelos endereços finais
@@ -95,6 +96,17 @@ $patches = foreach ($name in $hosts.Keys) {
   value: $($hosts[$name])
 "@
     }
+}
+
+# configura a ia para chamar o endpoint mcp público deste deploy
+$mcpUrl = "https://$($hosts['mcp'])/mcp"
+$patches += @{
+    target = @{ group = "apps"; version = "v1"; kind = "Deployment"; name = "acta-ai" }
+    patch = @"
+- op: replace
+  path: /spec/template/spec/containers/0/env/1/value
+  value: $mcpUrl
+"@
 }
 
 $applicationPatch = @{
@@ -113,16 +125,20 @@ kubectl rollout status deployment/acta-pg-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-mongo-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-import-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-import-worker -n acta-prod --timeout=15m
+kubectl rollout status deployment/acta-ai -n acta-prod --timeout=15m
+kubectl rollout status deployment/acta-mcp -n acta-prod --timeout=15m
 kubectl wait certificate --all -n acta-prod --for=condition=Ready --timeout=10m
 
 # chama os endereços públicos para confirmar que estão respondendo
 Invoke-WebRequest "https://$($hosts['pg-api'])/api/v1/health" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['mongo-api'])/api/v1/health" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['import-api'])/docs" -UseBasicParsing
+Invoke-WebRequest "https://$($hosts['mcp'])/health" -UseBasicParsing
 
 # mostra o estado final da implantação
 kubectl get applications -n argocd
 kubectl get pods,secrets,ingress,certificate -n acta-prod
 
 Write-Host "Implantacao concluida"
+Write-Host "MCP: https://$($hosts['mcp'])/mcp"
 terraform -chdir=infra/aws output api_urls
