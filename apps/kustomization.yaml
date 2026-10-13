@@ -4,10 +4,14 @@ kind: Kustomization
 namespace: acta-prod
 
 resources:
+  - ai.yaml
+  - mcp.yaml
   - pg-api.yaml
   - mongo-api.yaml
   - import-api.yaml
   - ingress.yaml
+  - config/ai-secrets.yaml
+  - config/mcp-secrets.yaml
   - config/pg-api-secrets.yaml
   - config/mongo-api-secrets.yaml
   - config/import-api-secrets.yaml
