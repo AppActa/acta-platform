@@ -143,6 +143,8 @@ O Argo CD usa `prune` para remover recursos excluídos do estado desejado e `sel
 
 Os manifests das APIs PG, Mongo e Import e do worker definem requests e limits de CPU/memória. AI e MCP têm Services internos e probes; o AI também é publicado pelo Ingress `acta-ai`. Durante a implantação, `infra/aws/deploy.ps1` deriva os hosts públicos do IP do Terraform, configura `ACTA_MCP_URL` no Deployment do AI para `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp` e imprime as URLs. O cliente AI envia a chave Bearer configurada e o contexto de usuário/empresa esperado pelo MCP.
 
+O planejamento da infraestrutura e das cotas gratuitas de PostgreSQL, MongoDB, Redis e Qdrant, incluindo as premissas usadas no orçamento AWS Education, está em [`PLANO_DE_CUSTOS.md`](PLANO_DE_CUSTOS.md).
+
 ## 🔐 Segredos e acesso de rede
 
 - SSH e a API Kubernetes são limitados ao `admin_cidr` configurado.
@@ -205,6 +207,7 @@ Terraform prepara a infraestrutura e o cluster. Ele não substitui o Argo CD: o 
 │   ├── output.tf             # IP, instância, SSH e URLs
 │   ├── deploy.ps1            # orquestra o provisionamento e deploy
 │   └── bootstrap-k3s.sh      # instala componentes no cluster
+├── PLANO_DE_CUSTOS.md        # arquitetura planejada e orçamento mensal
 ├── PULL_REQUEST_TEMPLATE.md
 └── README.md
 ```
