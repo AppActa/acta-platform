@@ -180,13 +180,13 @@ O script solicita o Client ID e Client Secret do Infisical. Insira-os somente no
 
 ### Estado de AI e MCP neste checkout
 
-Os manifests `apps/ai.yaml`, `apps/mcp.yaml`, `apps/config/ai-secrets.yaml` e `apps/config/mcp-secrets.yaml` estão listados em `apps/kustomization.yaml`. Antes de sincronizá-los, confirme que a imagem MCP está publicada no GHCR e que os caminhos e nomes referenciados existem no Infisical. O script de implantação aguarda os seis Deployments e os certificados, verifica `/health` do MCP e imprime o endereço público do protocolo MCP.
+Os manifests `apps/ai.yaml`, `apps/mcp.yaml`, `apps/config/ai-secrets.yaml` e `apps/config/mcp-secrets.yaml` estão listados em `apps/kustomization.yaml`. Antes de sincronizá-los, confirme que a imagem MCP está publicada no GHCR e que os caminhos e nomes referenciados existem no Infisical. O script de implantação aguarda os seis Deployments e os certificados, verifica `/health` do AI e do MCP e imprime as URLs públicas.
 
 Para preparar essa integração, os caminhos planejados nos manifests são `/ai` e `/mcp`, no ambiente `prod`; confirme que existem no projeto autorizado e que contêm os nomes exigidos pelo código antes de sincronizar os Secrets. Não registre valores reais em arquivos, comandos ou documentação. A chave compartilhada `ACTA_MCP_API_KEY` precisa ser a mesma nos dois serviços, pois o AI a envia como Bearer e o MCP a valida; confirme essa igualdade diretamente no ambiente antes de habilitar a integração.
 
 ## 6. Sincronizar aplicações com Argo CD
 
-O script aplica `argocd/prod.yaml`, constrói os hosts a partir do Elastic IP e os configura na Application `acta-prod`. Para o MCP, ele usa `https://mcp.<ip-com-hifens>.sslip.io/mcp` em `ACTA_MCP_URL`; o sufixo `/mcp` corresponde ao endpoint Streamable HTTP exposto pelo código de `acta-mcp`. `/health` é somente a rota de disponibilidade. O endereço depende do IP público retornado pelo Terraform e é impresso pelo script. O Argo CD acompanha a branch `main` e reconcilia os manifests de `apps/`.
+O script aplica `argocd/prod.yaml`, constrói os hosts com prefixo `acta-` a partir do Elastic IP e os configura na Application `acta-prod`. Para o MCP, ele usa `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp` em `ACTA_MCP_URL`; o sufixo `/mcp` corresponde ao endpoint Streamable HTTP. O AI fica disponível em `https://acta-ai.<ip-com-hifens>.sslip.io`. `/health` é somente a rota de disponibilidade. O Argo CD acompanha a branch `main` e reconcilia os manifests de `apps/`.
 
 Confira o estado:
 
@@ -253,7 +253,8 @@ Aguarde os certificados ficarem `Ready` e os seis Deployments declarados conclu�
 - PostgreSQL API: `<pg_api>/api/v1/health`
 - Mongo API: `<mongo_api>/api/v1/health`
 - Import API: `<import_api>/docs`
-- MCP: `https://mcp.<ip-com-hifens>.sslip.io/mcp`
+- AI: `<ai>/health`
+- MCP: `<mcp>` (termina em `/mcp`)
 
 Exemplo para verificar uma URL:
 
@@ -262,9 +263,8 @@ $urls = terraform -chdir=infra/aws output -json api_urls | ConvertFrom-Json
 Invoke-WebRequest "$($urls.pg_api)/api/v1/health"
 Invoke-WebRequest "$($urls.mongo_api)/api/v1/health"
 Invoke-WebRequest "$($urls.import_api)/docs"
-$publicIp = (terraform -chdir=infra/aws output -raw public_ip).Trim()
-$mcpHost = "mcp.$($publicIp.Replace('.', '-')).sslip.io"
-Invoke-WebRequest "https://$mcpHost/health"
+Invoke-WebRequest "$($urls.ai)/health"
+Invoke-WebRequest "$($urls.mcp.Replace('/mcp', '/health'))"
 ```
 
 Uma resposta HTTP de sucesso confirma apenas a disponibilidade do endpoint consultado. Ela não valida o fluxo completo de importação. Faça um teste funcional controlado apenas com dados e arquivos autorizados, avaliando os efeitos no banco e no armazenamento de arquivos.

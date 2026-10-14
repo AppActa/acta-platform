@@ -25,8 +25,10 @@ output "ssh_command" {
 output "api_urls" {
   description = "URLs HTTPS publicadas pelo Traefik."
   value = {
-    pg_api     = "https://pg-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
-    mongo_api  = "https://mongo-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
-    import_api = "https://import-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+    ai         = "https://acta-ai.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+    pg_api     = "https://acta-pg-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+    mongo_api  = "https://acta-mongo-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+    import_api = "https://acta-import-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+    mcp        = "https://acta-mcp.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io/mcp"
   }
 }

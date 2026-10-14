@@ -77,10 +77,11 @@ kubectl apply -f .\argocd\prod.yaml
 # cria os endereços sslip.io usando o Elastic IP
 $ipHost = $publicIp.Replace(".", "-")
 $hosts = @{
-    "pg-api" = "pg-api.$ipHost.sslip.io"
-    "mongo-api" = "mongo-api.$ipHost.sslip.io"
-    "import-api" = "import-api.$ipHost.sslip.io"
-    "mcp" = "mcp.$ipHost.sslip.io"
+    "pg-api" = "acta-pg-api.$ipHost.sslip.io"
+    "mongo-api" = "acta-mongo-api.$ipHost.sslip.io"
+    "import-api" = "acta-import-api.$ipHost.sslip.io"
+    "mcp" = "acta-mcp.$ipHost.sslip.io"
+    "ai" = "acta-ai.$ipHost.sslip.io"
 }
 
 # troca os hosts genéricos pelos endereços finais
@@ -134,11 +135,11 @@ Invoke-WebRequest "https://$($hosts['pg-api'])/api/v1/health" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['mongo-api'])/api/v1/health" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['import-api'])/docs" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['mcp'])/health" -UseBasicParsing
+Invoke-WebRequest "https://$($hosts['ai'])/health" -UseBasicParsing
 
 # mostra o estado final da implantação
 kubectl get applications -n argocd
 kubectl get pods,secrets,ingress,certificate -n acta-prod
 
 Write-Host "Implantacao concluida"
-Write-Host "MCP: https://$($hosts['mcp'])/mcp"
 terraform -chdir=infra/aws output api_urls

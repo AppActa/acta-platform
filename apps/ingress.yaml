@@ -21,7 +21,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: pg-api.0-0-0-0.sslip.io
+    - host: acta-pg-api.0-0-0-0.sslip.io
       http:
         paths:
           - path: /
@@ -33,7 +33,7 @@ spec:
                   number: 8080
   tls:
     - hosts:
-        - pg-api.0-0-0-0.sslip.io
+        - acta-pg-api.0-0-0-0.sslip.io
       secretName: pg-api-tls
 ---
 apiVersion: networking.k8s.io/v1
@@ -45,7 +45,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: mongo-api.0-0-0-0.sslip.io
+    - host: acta-mongo-api.0-0-0-0.sslip.io
       http:
         paths:
           - path: /
@@ -57,7 +57,7 @@ spec:
                   number: 8081
   tls:
     - hosts:
-        - mongo-api.0-0-0-0.sslip.io
+        - acta-mongo-api.0-0-0-0.sslip.io
       secretName: mongo-api-tls
 ---
 apiVersion: networking.k8s.io/v1
@@ -69,7 +69,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: import-api.0-0-0-0.sslip.io
+    - host: acta-import-api.0-0-0-0.sslip.io
       http:
         paths:
           - path: /
@@ -81,7 +81,7 @@ spec:
                   number: 8000
   tls:
     - hosts:
-        - import-api.0-0-0-0.sslip.io
+        - acta-import-api.0-0-0-0.sslip.io
       secretName: import-api-tls
 ---
 apiVersion: networking.k8s.io/v1
@@ -93,7 +93,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-    - host: mcp.0-0-0-0.sslip.io
+    - host: acta-mcp.0-0-0-0.sslip.io
       http:
         paths:
           - path: /
@@ -105,5 +105,29 @@ spec:
                   number: 8000
   tls:
     - hosts:
-        - mcp.0-0-0-0.sslip.io
+        - acta-mcp.0-0-0-0.sslip.io
       secretName: mcp-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: acta-ai.0-0-0-0.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: acta-ai
+                port:
+                  number: 8200
+  tls:
+    - hosts:
+        - acta-ai.0-0-0-0.sslip.io
+      secretName: ai-tls

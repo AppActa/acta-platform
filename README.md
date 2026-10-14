@@ -11,7 +11,7 @@ O fluxo separa duas responsabilidades:
 1. o Terraform cria a rede, a instância EC2 e o acesso ao cluster;
 2. o Argo CD acompanha a pasta [`apps/`](apps/) na branch `main` e reconcilia os workloads no namespace `acta-prod`.
 
-O estado GitOps inclui AI, MCP, as APIs e o worker de importação. O deploy configura o AI para acessar o MCP em `https://mcp.<ip-com-hifens>.sslip.io/mcp`. As imagens e os segredos necessários devem estar disponíveis no GHCR e no Infisical.
+O estado GitOps inclui AI, MCP, as APIs e o worker de importação. O deploy publica os serviços em hosts `acta-*` derivados do Elastic IP e configura o AI para acessar o MCP em `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp`. As imagens e os segredos necessários devem estar disponíveis no GHCR e no Infisical.
 
 ## ✨ Capacidades
 
@@ -134,14 +134,16 @@ O Argo CD usa `prune` para remover recursos excluídos do estado desejado e `sel
 
 | Componente | Porta | Verificação de disponibilidade |
 | --- | ---: | --- |
-| `acta-ai` | 8200 | `GET /health` (interno ao cluster; sem Ingress) |
+| `acta-ai` | 8200 | `GET /health` (público via Ingress `acta-ai`) |
 | `acta-mcp` | 8000 | `GET /health` público; protocolo MCP em `/mcp` |
 | `acta-pg-api` | 8080 | `GET /api/v1/health` |
 | `acta-mongo-api` | 8081 | `GET /api/v1/health` |
 | `acta-import-api` | 8000 | `GET /docs` |
 | `acta-import-worker` | — | Processo RQ sem Service HTTP |
 
-Os manifests das APIs PG, Mongo e Import e do worker definem requests e limits de CPU/memória. AI e MCP têm Services internos e probes; as imagens e referências Infisical precisam estar disponíveis para os Deployments iniciarem corretamente. Durante a implantação, `infra/aws/deploy.ps1` deriva o host MCP do IP público do Terraform, configura `ACTA_MCP_URL` no Deployment do AI para `https://mcp.<ip-com-hifens>.sslip.io/mcp` e imprime a URL resultante. O cliente AI envia a chave Bearer configurada e o contexto de usuário/empresa esperado pelo MCP.
+Os manifests das APIs PG, Mongo e Import e do worker definem requests e limits de CPU/memória. AI e MCP têm Services internos e probes; o AI também é publicado pelo Ingress `acta-ai`. Durante a implantação, `infra/aws/deploy.ps1` deriva os hosts públicos do IP do Terraform, configura `ACTA_MCP_URL` no Deployment do AI para `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp` e imprime as URLs. O cliente AI envia a chave Bearer configurada e o contexto de usuário/empresa esperado pelo MCP.
+
+O planejamento da infraestrutura e das cotas gratuitas de PostgreSQL, MongoDB, Redis e Qdrant, incluindo as premissas usadas no orçamento AWS Education, está em [`PLANO_DE_CUSTOS.md`](PLANO_DE_CUSTOS.md).
 
 ## 🔐 Segredos e acesso de rede
 
@@ -205,6 +207,7 @@ Terraform prepara a infraestrutura e o cluster. Ele não substitui o Argo CD: o 
 │   ├── output.tf             # IP, instância, SSH e URLs
 │   ├── deploy.ps1            # orquestra o provisionamento e deploy
 │   └── bootstrap-k3s.sh      # instala componentes no cluster
+├── PLANO_DE_CUSTOS.md        # arquitetura planejada e orçamento mensal
 ├── PULL_REQUEST_TEMPLATE.md
 └── README.md
 ```
