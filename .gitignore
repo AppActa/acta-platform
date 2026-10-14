@@ -7,3 +7,4 @@ testes/
 terraform.tfvars
 .aws/
 .terraform/
+docx_qa/
