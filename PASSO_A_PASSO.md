@@ -288,10 +288,9 @@ Antes da liberação, confirme no banco `public.usuario_sistema.firebase_fid`, `
 
 ### Publicar e liberar
 
-1. Publique primeiro a implementação da `acta-fcm-api` na `main` e aguarde a publicação da imagem. O workflow permite a primeira publicação quando os manifests ainda não existem no platform.
-2. Publique a configuração do `acta-platform` após configurar as dependências. O workflow da API mantém as imagens do Deployment e do CronJob atualizadas juntas a cada push na `main`.
-3. Configure o host `acta-fcm-api.<ip-com-hifens>.sslip.io` no Argo CD, conforme os patches de `deploy.ps1`. Em cluster existente, preserve os patches dos outros serviços e não repita o provisionamento AWS.
-4. Remova a entrada FCM em `replicas` de [`apps/kustomization.yaml`](apps/kustomization.yaml) para liberar uma réplica. Mantenha o CronJob suspenso até validar os lembretes.
+1. Com a imagem já publicada e as dependências configuradas, publique a configuração do `acta-platform`. O workflow da API mantém as imagens do Deployment e do CronJob atualizadas juntas a cada push na `main`.
+2. Configure o host `acta-fcm-api.<ip-com-hifens>.sslip.io` no Argo CD, conforme os patches de `deploy.ps1`. Em cluster existente, preserve os patches dos outros serviços e não repita o provisionamento AWS.
+3. Acompanhe o rollout da API, configurada com uma réplica. Mantenha o CronJob suspenso até validar os lembretes.
 
 O Argo CD sincroniza a `main` automaticamente. Se o pacote GHCR for privado, configure acesso de leitura no cluster, reutilizando `ghcr-pull` quando disponível.
 

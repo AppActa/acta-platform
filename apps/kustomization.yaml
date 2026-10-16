@@ -9,9 +9,12 @@ resources:
   - pg-api.yaml
   - mongo-api.yaml
   - import-api.yaml
+  - fcm-api.yaml
+  - fcm-lembretes.yaml
   - ingress.yaml
   - config/ai-secrets.yaml
   - config/mcp-secrets.yaml
   - config/pg-api-secrets.yaml
   - config/mongo-api-secrets.yaml
   - config/import-api-secrets.yaml
+  - config/fcm-api-secrets.yaml

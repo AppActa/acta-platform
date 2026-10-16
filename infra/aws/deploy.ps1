@@ -82,6 +82,7 @@ $hosts = @{
     "import-api" = "acta-import-api.$ipHost.sslip.io"
     "mcp" = "acta-mcp.$ipHost.sslip.io"
     "ai" = "acta-ai.$ipHost.sslip.io"
+    "fcm-api" = "acta-fcm-api.$ipHost.sslip.io"
 }
 
 # troca os hosts genéricos pelos endereços finais
@@ -128,6 +129,7 @@ kubectl rollout status deployment/acta-import-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-import-worker -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-ai -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-mcp -n acta-prod --timeout=15m
+kubectl rollout status deployment/acta-fcm-api -n acta-prod --timeout=15m
 kubectl wait certificate --all -n acta-prod --for=condition=Ready --timeout=10m
 
 # chama os endereços públicos para confirmar que estão respondendo
@@ -136,6 +138,7 @@ Invoke-WebRequest "https://$($hosts['mongo-api'])/api/v1/health" -UseBasicParsin
 Invoke-WebRequest "https://$($hosts['import-api'])/docs" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['mcp'])/health" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['ai'])/health" -UseBasicParsing
+Invoke-WebRequest "https://$($hosts['fcm-api'])/health" -UseBasicParsing
 
 # mostra o estado final da implantação
 kubectl get applications -n argocd

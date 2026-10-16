@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: acta-fcm-lembretes
+  labels:
+    app.kubernetes.io/name: acta-fcm-lembretes
+    app.kubernetes.io/part-of: acta
+spec:
+  schedule: "0 9 * * *"
+  timeZone: America/Sao_Paulo
+  suspend: true
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 1800
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: acta-fcm-lembretes
+            app.kubernetes.io/part-of: acta
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: acta-fcm-lembretes
+              image: ghcr.io/appacta/acta-fcm-api:sha-54a4f2d2fe75c7527a0173dbf6e6d22918447519
+              imagePullPolicy: IfNotPresent
+              command: ["python", "-m", "app.jobs.lembretes"]
+              envFrom:
+                - secretRef:
+                    name: acta-fcm-api-env
+              env:
+                - name: GOOGLE_APPLICATION_CREDENTIALS
+                  value: /var/run/secrets/firebase/service-account.json
+              volumeMounts:
+                - name: firebase-admin
+                  mountPath: /var/run/secrets/firebase
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: firebase-admin
+              secret:
+                secretName: firebase-admin
+                items:
+                  - key: service-account.json
+                    path: service-account.json

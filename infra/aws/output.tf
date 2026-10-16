@@ -29,6 +29,7 @@ output "api_urls" {
     pg_api     = "https://acta-pg-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
     mongo_api  = "https://acta-mongo-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
     import_api = "https://acta-import-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
+    fcm_api    = "https://acta-fcm-api.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io"
     mcp        = "https://acta-mcp.${replace(aws_eip.k3s.public_ip, ".", "-")}.sslip.io/mcp"
   }
 }

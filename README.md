@@ -132,7 +132,7 @@ O Argo CD usa `prune` para remover recursos excluídos do estado desejado e `sel
 
 ## 🧩 Serviços orquestrados
 
-A FCM está em preparação em [`apps/fcm-api.yaml`](apps/fcm-api.yaml) e [`apps/fcm-lembretes.yaml`](apps/fcm-lembretes.yaml): API e CronJob compartilham a imagem, as referências de banco e o Secret Firebase mantido pela PG API. O Kustomize mantém a FCM em zero réplicas e o CronJob permanece suspenso; a liberação da API restaura a réplica definida no manifest-base após validar os pré-requisitos. Consulte a [sequência de publicação e operação](PASSO_A_PASSO.md#-publicação-e-operação-da-fcm).
+A FCM está configurada em [`apps/fcm-api.yaml`](apps/fcm-api.yaml) e [`apps/fcm-lembretes.yaml`](apps/fcm-lembretes.yaml): API e CronJob compartilham a imagem, as referências de banco e o Secret Firebase mantido pela PG API. A API define uma réplica e o CronJob permanece suspenso até validar os lembretes. Consulte a [sequência de publicação e operação](PASSO_A_PASSO.md#-publicação-e-operação-da-fcm).
 
 | Componente | Porta | Verificação de disponibilidade |
 | --- | ---: | --- |

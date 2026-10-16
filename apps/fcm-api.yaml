@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acta-fcm-api
+  annotations:
+    secrets.infisical.com/auto-reload: "true"
+  labels:
+    app.kubernetes.io/name: acta-fcm-api
+    app.kubernetes.io/part-of: acta
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: acta-fcm-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: acta-fcm-api
+        app.kubernetes.io/part-of: acta
+    spec:
+      containers:
+        - name: acta-fcm-api
+          image: ghcr.io/appacta/acta-fcm-api:sha-54a4f2d2fe75c7527a0173dbf6e6d22918447519
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8082
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: acta-fcm-api-env
+          env:
+            - name: PORT
+              value: "8082"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/secrets/firebase/service-account.json
+          volumeMounts:
+            - name: firebase-admin
+              mountPath: /var/run/secrets/firebase
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: firebase-admin
+          secret:
+            secretName: firebase-admin
+            items:
+              - key: service-account.json
+                path: service-account.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: acta-fcm-api
+  labels:
+    app.kubernetes.io/name: acta-fcm-api
+    app.kubernetes.io/part-of: acta
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: acta-fcm-api
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http
+      protocol: TCP
