@@ -8,12 +8,14 @@ O repositório mantém serviços do ACTA em Kubernetes/K3s na AWS, com configura
 
 | Componente | Uso esperado | Serviços que precisam dele |
 | --- | --- | --- |
-| PostgreSQL no Neon | Dados relacionais | `acta-pg-api` e `acta-import-api` |
+| PostgreSQL no Neon | Dados relacionais e notificações | `acta-pg-api`, `acta-import-api`, `acta-fcm-api` e job de lembretes |
 | MongoDB Atlas | Documentos | `acta-mongo-api`, `acta-ai` e `acta-mcp` |
 | Redis no Upstash | Cache/fila usada pelo fluxo de importação | `acta-import-api` e worker correspondente, conforme o código do serviço |
 | Qdrant Cloud | Busca vetorial | `acta-ai` e `acta-mcp` |
 
 Confirme cada relação nos repositórios das aplicações antes de alterar contratos ou configurações. Os nomes de variáveis acima foram observados nos manifests deste repositório; não são prova de que cada serviço esteja usando o banco em produção.
+
+O [Firebase Cloud Messaging](https://firebase.google.com/pricing) não tem cobrança pelo serviço de mensagens, conforme consulta em 15/10/2026. Isso não elimina o consumo da EC2, do banco ou do tráfego de saída associado à API e aos lembretes.
 
 ## 🧾 Cotas gratuitas consideradas
 

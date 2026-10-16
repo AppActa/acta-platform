@@ -269,6 +269,51 @@ Invoke-WebRequest "$($urls.mcp.Replace('/mcp', '/health'))"
 
 Uma resposta HTTP de sucesso confirma apenas a disponibilidade do endpoint consultado. Ela não valida o fluxo completo de importação. Faça um teste funcional controlado apenas com dados e arquivos autorizados, avaliando os efeitos no banco e no armazenamento de arquivos.
 
+## Publicação e operação da FCM
+
+### Configurar dependências
+
+No Infisical, configure o ambiente `prod` e confirme o caminho `/fcm-api` e a permissão de leitura da identidade usada pelo operador. As referências estão em [`apps/config/fcm-api-secrets.yaml`](apps/config/fcm-api-secrets.yaml).
+
+| Chave | Configuração |
+| --- | --- |
+| `DB_URL` | DSN PostgreSQL compatível com psycopg2. |
+| `ACTA_PG_API_URL` | `http://acta-pg-api.acta-prod.svc.cluster.local:8080/api/v1`; a FCM acrescenta `/me`. |
+| `INTERNAL_API_TOKEN` | Segredo próprio dos produtores, enviado em `X-Internal-Token`. |
+| `FIREBASE_PROJECT_ID` | Projeto Firebase usado pelo serviço e pelo aplicativo. |
+
+A FCM reutiliza o Secret `firebase-admin`, chave `service-account.json`, mantido pelo recurso Infisical da PG API. Não crie outro proprietário para esse Secret. Confirme que a identidade tem permissão para enviar mensagens FCM. As credenciais são montadas somente para leitura.
+
+Antes da liberação, confirme no banco `public.usuario_sistema.firebase_fid`, `auditoria.notificacao` e a unicidade por destinatário e chave de deduplicação. O plano local menciona `token_fcm`, mas a implementação usa `firebase_fid`. O usuário do banco precisa ler os dados de usuários e tarefas, atualizar o identificador do dispositivo e ler, inserir e atualizar notificações, com acesso aos schemas e à sequência necessários. Não aplique migrations ou scripts destrutivos para fazer essa conferência.
+
+### Publicar e liberar
+
+1. Com a imagem já publicada e as dependências configuradas, publique a configuração do `acta-platform`. O workflow da API mantém as imagens do Deployment e do CronJob atualizadas juntas a cada push na `main`.
+2. Configure o host `acta-fcm-api.<ip-com-hifens>.sslip.io` no Argo CD, conforme os patches de `deploy.ps1`. Em cluster existente, preserve os patches dos outros serviços e não repita o provisionamento AWS.
+3. Acompanhe o rollout da API, configurada com uma réplica. Mantenha o CronJob suspenso até validar os lembretes.
+
+O Argo CD sincroniza a `main` automaticamente. Se o pacote GHCR for privado, configure acesso de leitura no cluster, reutilizando `ghcr-pull` quando disponível.
+
+### Verificar o serviço
+
+```powershell
+kubectl rollout status deployment/acta-fcm-api -n acta-prod --timeout=15m
+kubectl get infisicalsecret acta-fcm-api-secrets -n acta-prod
+kubectl get certificate fcm-api-tls -n acta-prod
+$urls = terraform -chdir=infra/aws output -json api_urls | ConvertFrom-Json
+Invoke-WebRequest "$($urls.fcm_api)/health"
+```
+
+`/health` verifica somente o processo. Valide separadamente a autenticação e o banco em `/api/v1/me/notificacoes`, a persistência e deduplicação de um evento autorizado e a entrega de push em dispositivo de teste.
+
+O endereço público expõe apenas `/api/v1/me` e seus subcaminhos e `/health`. `/internal/v1/eventos` deve retornar 404 pelo host público. OpenAPI e suas páginas ficam internas. Produtores usam `http://acta-fcm-api.acta-prod.svc.cluster.local:8082/internal/v1/eventos` com `X-Internal-Token`.
+
+### Ativar lembretes e reverter
+
+O CronJob em [`apps/fcm-lembretes.yaml`](apps/fcm-lembretes.yaml) executa diariamente às 09h em `America/Sao_Paulo` e começa com `suspend: true`. Confirme o suporte do cluster com `kubectl explain cronjob.spec.timeZone`. Após validar banco e Firebase, execute um teste autorizado com `kubectl create job --from=cronjob/acta-fcm-lembretes <nome-do-teste> -n acta-prod`. Esse teste grava notificações e pode enviar push, mesmo com o CronJob suspenso. Após conferir o resultado, altere `suspend: false` no Git.
+
+Para rollback, reverta a alteração pelo Git e acompanhe o Argo CD. Para interromper novas execuções, restaure zero réplicas e `suspend: true`; Jobs já iniciados continuam executando. O rollback não desfaz notificações gravadas nem mensagens enviadas.
+
 ## 🩺 Diagnóstico rápido
 
 | Sintoma | Verificação inicial |
