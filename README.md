@@ -132,6 +132,8 @@ O Argo CD usa `prune` para remover recursos excluídos do estado desejado e `sel
 
 ## 🧩 Serviços orquestrados
 
+A FCM está em preparação em [`apps/fcm-api.yaml`](apps/fcm-api.yaml) e [`apps/fcm-lembretes.yaml`](apps/fcm-lembretes.yaml): API e CronJob compartilham a imagem, as referências de banco e o Secret Firebase mantido pela PG API. O Kustomize mantém a FCM em zero réplicas e o CronJob permanece suspenso; a liberação da API restaura a réplica definida no manifest-base após validar os pré-requisitos. Consulte a [sequência de publicação e operação](PASSO_A_PASSO.md#-publicação-e-operação-da-fcm).
+
 | Componente | Porta | Verificação de disponibilidade |
 | --- | ---: | --- |
 | `acta-ai` | 8200 | `GET /health` (público via Ingress `acta-ai`) |
@@ -140,6 +142,10 @@ O Argo CD usa `prune` para remover recursos excluídos do estado desejado e `sel
 | `acta-mongo-api` | 8081 | `GET /api/v1/health` |
 | `acta-import-api` | 8000 | `GET /docs` |
 | `acta-import-worker` | — | Processo RQ sem Service HTTP |
+| `acta-fcm-api` (preparação) | 8082 | `GET /health` verifica somente o processo |
+| `acta-fcm-lembretes` (suspenso) | — | Job diário às 09h em `America/Sao_Paulo` |
+
+O host FCM é `https://acta-fcm-api.<ip-com-hifens>.sslip.io`. Somente `/api/v1/me` e seus subcaminhos e `/health` são expostos. Produtores usam `http://acta-fcm-api.acta-prod.svc.cluster.local:8082/internal/v1/eventos` com `X-Internal-Token`; integrações de domínio não fazem parte desta preparação. OpenAPI, `/docs` e `/redoc` ficam internos, acessíveis por port-forward autorizado.
 
 Os manifests das APIs PG, Mongo e Import e do worker definem requests e limits de CPU/memória. AI e MCP têm Services internos e probes; o AI também é publicado pelo Ingress `acta-ai`. Durante a implantação, `infra/aws/deploy.ps1` deriva os hosts públicos do IP do Terraform, configura `ACTA_MCP_URL` no Deployment do AI para `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp` e imprime as URLs. O cliente AI envia a chave Bearer configurada e o contexto de usuário/empresa esperado pelo MCP.
 
