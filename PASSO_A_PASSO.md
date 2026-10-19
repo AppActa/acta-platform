@@ -178,15 +178,15 @@ A autenticação deve ter permissão de leitura de pacotes. Não copie nem regis
 
 O script solicita o Client ID e Client Secret do Infisical. Insira-os somente nos prompts interativos quando solicitados; o campo do segredo é oculto. O valor é enviado ao Kubernetes como Secret `infisical-universal-auth`. Configure previamente no Infisical os segredos exigidos pelos manifests existentes em `apps/config/`, nos caminhos e ambiente referenciados neles. Obtenha cada valor diretamente no projeto Infisical autorizado para o ambiente de destino; use placeholders em exemplos locais e nunca copie os valores para o Git ou para este guia. Para conferir a sincronização, execute `kubectl get infisicalsecret -n acta-prod` e confirme que os Secrets referenciados pelos Deployments foram criados.
 
-### Estado de AI e MCP neste checkout
+### Estado de Auth API, AI e MCP neste checkout
 
-Os manifests `apps/ai.yaml`, `apps/mcp.yaml`, `apps/config/ai-secrets.yaml` e `apps/config/mcp-secrets.yaml` estão listados em `apps/kustomization.yaml`. Antes de sincronizá-los, confirme que a imagem MCP está publicada no GHCR e que os caminhos e nomes referenciados existem no Infisical. O script de implantação aguarda os seis Deployments e os certificados, verifica `/health` do AI e do MCP e imprime as URLs públicas.
+Os manifests `apps/ai.yaml`, `apps/mcp.yaml`, `apps/auth-api.yaml` e seus arquivos de configuração estão listados em `apps/kustomization.yaml`. Antes de sincronizá-los, confirme que as imagens estão publicadas no GHCR e que os caminhos e nomes referenciados existem no Infisical. A Auth API lê as credenciais próprias no caminho `/auth-api` e reutiliza o Secret `firebase-admin` criado pela configuração da PG API. O script de implantação aguarda os Deployments e os certificados, verifica `/api/v1/health` da Auth API e imprime as URLs públicas.
 
 Para preparar essa integração, os caminhos planejados nos manifests são `/ai` e `/mcp`, no ambiente `prod`; confirme que existem no projeto autorizado e que contêm os nomes exigidos pelo código antes de sincronizar os Secrets. Não registre valores reais em arquivos, comandos ou documentação. A chave compartilhada `ACTA_MCP_API_KEY` precisa ser a mesma nos dois serviços, pois o AI a envia como Bearer e o MCP a valida; confirme essa igualdade diretamente no ambiente antes de habilitar a integração.
 
 ## 6. Sincronizar aplicações com Argo CD
 
-O script aplica `argocd/prod.yaml`, constrói os hosts com prefixo `acta-` a partir do Elastic IP e os configura na Application `acta-prod`. Para o MCP, ele usa `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp` em `ACTA_MCP_URL`; o sufixo `/mcp` corresponde ao endpoint Streamable HTTP. O AI fica disponível em `https://acta-ai.<ip-com-hifens>.sslip.io`. `/health` é somente a rota de disponibilidade. O Argo CD acompanha a branch `main` e reconcilia os manifests de `apps/`.
+O script aplica `argocd/prod.yaml`, constrói os hosts com prefixo `acta-` a partir do Elastic IP e os configura na Application `acta-prod`. Para a Auth API, ele ajusta `EXTERNAL_URL` ao host público usado nos links dos e-mails de convite. Para o MCP, usa `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp` em `ACTA_MCP_URL`; o sufixo `/mcp` corresponde ao endpoint Streamable HTTP. O AI fica disponível em `https://acta-ai.<ip-com-hifens>.sslip.io`. `/health` é somente a rota de disponibilidade. O Argo CD acompanha a branch `main` e reconcilia os manifests de `apps/`.
 
 Confira o estado:
 
@@ -230,13 +230,14 @@ ssh -i $PrivateKey "ubuntu@$PublicIp" "sudo kubectl get nodes"
 ssh -i $PrivateKey "ubuntu@$PublicIp" "sudo kubectl get deployments,pods -n acta-prod"
 ```
 
-Confirme o nó `Ready` e os seis Deployments declarados no Kustomize conforme a seção 7. Se probes, Pods ou eventos indicarem falha, registre o estado e siga o diagnóstico da etapa ativa; não repita bootstrap, aplique Terraform nem force sincronização GitOps como tentativa genérica de recuperação.
+Confirme o nó `Ready` e os Deployments declarados no Kustomize conforme a seção 7. Se probes, Pods ou eventos indicarem falha, registre o estado e siga o diagnóstico da etapa ativa; não repita bootstrap, aplique Terraform nem force sincronização GitOps como tentativa genérica de recuperação.
 
 ## 7. Verificar serviços e certificados
 
 O script aguarda os Deployments e certificados e faz requisições HTTPS às APIs. Se estiver verificando manualmente:
 
 ```powershell
+kubectl rollout status deployment/acta-auth-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-pg-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-mongo-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-import-api -n acta-prod --timeout=15m
@@ -248,8 +249,9 @@ kubectl get pods,services,ingress -n acta-prod
 terraform -chdir=infra/aws output api_urls
 ```
 
-Aguarde os certificados ficarem `Ready` e os seis Deployments declarados concluírem o rollout. Use as URLs reportadas pelos outputs do Terraform para testar as APIs públicas. O script também imprime a URL do MCP; para chamadas de protocolo, use o endereço terminado em `/mcp`, e reserve `/health` para a verificação de disponibilidade:
+Aguarde os certificados ficarem `Ready` e os Deployments declarados concluírem o rollout. Use as URLs reportadas pelos outputs do Terraform para testar as APIs públicas. O script também imprime a URL do MCP; para chamadas de protocolo, use o endereço terminado em `/mcp`, e reserve as rotas de saúde para verificação de disponibilidade:
 
+- Auth API: `<auth_api>/api/v1/health`
 - PostgreSQL API: `<pg_api>/api/v1/health`
 - Mongo API: `<mongo_api>/api/v1/health`
 - Import API: `<import_api>/docs`
@@ -260,6 +262,7 @@ Exemplo para verificar uma URL:
 
 ```powershell
 $urls = terraform -chdir=infra/aws output -json api_urls | ConvertFrom-Json
+Invoke-WebRequest "$($urls.auth_api)/api/v1/health"
 Invoke-WebRequest "$($urls.pg_api)/api/v1/health"
 Invoke-WebRequest "$($urls.mongo_api)/api/v1/health"
 Invoke-WebRequest "$($urls.import_api)/docs"

@@ -77,6 +77,7 @@ kubectl apply -f .\argocd\prod.yaml
 # cria os endereços sslip.io usando o Elastic IP
 $ipHost = $publicIp.Replace(".", "-")
 $hosts = @{
+    "auth-api" = "acta-auth-api.$ipHost.sslip.io"
     "pg-api" = "acta-pg-api.$ipHost.sslip.io"
     "mongo-api" = "acta-mongo-api.$ipHost.sslip.io"
     "import-api" = "acta-import-api.$ipHost.sslip.io"
@@ -98,6 +99,16 @@ $patches = foreach ($name in $hosts.Keys) {
   value: $($hosts[$name])
 "@
     }
+}
+
+# configura a URL pública usada nos links do e-mail de convite
+$patches += @{
+    target = @{ group = "apps"; version = "v1"; kind = "Deployment"; name = "acta-auth-api" }
+    patch = @"
+- op: replace
+  path: /spec/template/spec/containers/0/env/1/value
+  value: https://$($hosts['auth-api'])
+"@
 }
 
 # configura a ia para chamar o endpoint mcp público deste deploy
@@ -124,6 +135,7 @@ kubectl wait application/acta-prod -n argocd --for=jsonpath='{.status.sync.statu
 
 # espera as apis, o worker e os certificados ficarem prontos
 kubectl rollout status deployment/acta-pg-api -n acta-prod --timeout=15m
+kubectl rollout status deployment/acta-auth-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-mongo-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-import-api -n acta-prod --timeout=15m
 kubectl rollout status deployment/acta-import-worker -n acta-prod --timeout=15m
@@ -134,6 +146,7 @@ kubectl wait certificate --all -n acta-prod --for=condition=Ready --timeout=10m
 
 # chama os endereços públicos para confirmar que estão respondendo
 Invoke-WebRequest "https://$($hosts['pg-api'])/api/v1/health" -UseBasicParsing
+Invoke-WebRequest "https://$($hosts['auth-api'])/api/v1/health" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['mongo-api'])/api/v1/health" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['import-api'])/docs" -UseBasicParsing
 Invoke-WebRequest "https://$($hosts['mcp'])/health" -UseBasicParsing

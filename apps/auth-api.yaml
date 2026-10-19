@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: acta-auth-api
+  annotations:
+    secrets.infisical.com/auto-reload: "true"
+  labels:
+    app.kubernetes.io/name: acta-auth-api
+    app.kubernetes.io/part-of: acta
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: acta-auth-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: acta-auth-api
+        app.kubernetes.io/part-of: acta
+    spec:
+      containers:
+        - name: acta-auth-api
+          image: ghcr.io/appacta/acta-auth-api:sha-8db0a7f34314be8a283cc4b8daa3c6dd640c255b
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: acta-auth-api-env
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/secrets/firebase/service-account.json
+            - name: EXTERNAL_URL
+              value: https://acta-auth-api.0-0-0-0.sslip.io
+          volumeMounts:
+            - name: firebase-admin
+              mountPath: /var/run/secrets/firebase
+              readOnly: true
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: firebase-admin
+          secret:
+            secretName: firebase-admin
+            items:
+              - key: service-account.json
+                path: service-account.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: acta-auth-api
+  labels:
+    app.kubernetes.io/name: acta-auth-api
+    app.kubernetes.io/part-of: acta
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: acta-auth-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
