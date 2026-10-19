@@ -63,7 +63,7 @@ instance_type = "t3.medium"
 
 O arquivo `terraform.tfvars`, estados, planos, credenciais AWS e chaves privadas são ignorados pelo Git. Nunca versione esses arquivos.
 
-Os manifests `InfisicalSecret` contêm somente referências. Os valores reais de banco, Firebase, Cloudinary, Redis e tokens devem permanecer no Infisical. Antes de sincronizar AI e MCP, confirme que os caminhos planejados e os nomes referenciados existem no projeto Infisical autorizado. Não copie valores para o Git ou para a documentação.
+Os manifests `InfisicalSecret` contêm somente referências. Os valores reais de banco, Firebase, Cloudinary, Redis e tokens devem permanecer no Infisical. Antes de sincronizar Auth API, AI e MCP, confirme que os caminhos planejados e os nomes referenciados existem no projeto Infisical autorizado. Não copie valores para o Git ou para a documentação.
 
 ## 🧪 Validação local
 
@@ -103,7 +103,7 @@ O script:
 5. cria o Secret de autenticação do Infisical a partir de entradas interativas;
 6. aplica [`argocd/prod.yaml`](argocd/prod.yaml) e ajusta os hosts `sslip.io` ao Elastic IP;
 7. aguarda sincronização, workloads e certificados;
-8. consulta os endpoints públicos da PG API, Mongo API, Import API e a rota `/health` do MCP e exibe o endereço `/mcp` do MCP.
+8. consulta os endpoints públicos da Auth API, PG API, Mongo API, Import API e a rota `/health` do MCP e exibe o endereço `/mcp` do MCP.
 
 O kubeconfig obtido do servidor é salvo em `~/.kube/acta-aws.yaml`. A chave privada esperada pelo script fica em `.aws/labsuser.pem`; esse caminho é local e está ignorado pelo Git.
 
@@ -132,12 +132,13 @@ O Argo CD usa `prune` para remover recursos excluídos do estado desejado e `sel
 
 ## 🧩 Serviços orquestrados
 
-A FCM está configurada em [`apps/fcm-api.yaml`](apps/fcm-api.yaml) e [`apps/fcm-lembretes.yaml`](apps/fcm-lembretes.yaml): API e CronJob compartilham a imagem, as referências de banco e o Secret Firebase mantido pela PG API. A API define uma réplica e o CronJob permanece suspenso até validar os lembretes. Consulte a [sequência de publicação e operação](PASSO_A_PASSO.md#-publicação-e-operação-da-fcm).
+A Auth API está configurada em [`apps/auth-api.yaml`](apps/auth-api.yaml), com segredos no caminho `/auth-api` do Infisical e o Secret Firebase mantido pela PG API. A FCM está configurada em [`apps/fcm-api.yaml`](apps/fcm-api.yaml) e [`apps/fcm-lembretes.yaml`](apps/fcm-lembretes.yaml): API e CronJob compartilham a imagem, as referências de banco e o Secret Firebase mantido pela PG API. A API define uma réplica e o CronJob permanece suspenso até validar os lembretes. Consulte a [sequência de publicação e operação](PASSO_A_PASSO.md#-publicação-e-operação-da-fcm).
 
 | Componente | Porta | Verificação de disponibilidade |
 | --- | ---: | --- |
 | `acta-ai` | 8200 | `GET /health` (público via Ingress `acta-ai`) |
 | `acta-mcp` | 8000 | `GET /health` público; protocolo MCP em `/mcp` |
+| `acta-auth-api` | 8080 | `GET /api/v1/health`; autenticação Firebase, onboarding e convites |
 | `acta-pg-api` | 8080 | `GET /api/v1/health` |
 | `acta-mongo-api` | 8081 | `GET /api/v1/health` |
 | `acta-import-api` | 8000 | `GET /docs` |
@@ -147,7 +148,7 @@ A FCM está configurada em [`apps/fcm-api.yaml`](apps/fcm-api.yaml) e [`apps/fcm
 
 O host FCM é `https://acta-fcm-api.<ip-com-hifens>.sslip.io`. Somente `/api/v1/me` e seus subcaminhos e `/health` são expostos. Produtores usam `http://acta-fcm-api.acta-prod.svc.cluster.local:8082/internal/v1/eventos` com `X-Internal-Token`; integrações de domínio não fazem parte desta preparação. OpenAPI, `/docs` e `/redoc` ficam internos, acessíveis por port-forward autorizado.
 
-Os manifests das APIs PG, Mongo e Import e do worker definem requests e limits de CPU/memória. AI e MCP têm Services internos e probes; o AI também é publicado pelo Ingress `acta-ai`. Durante a implantação, `infra/aws/deploy.ps1` deriva os hosts públicos do IP do Terraform, configura `ACTA_MCP_URL` no Deployment do AI para `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp` e imprime as URLs. O cliente AI envia a chave Bearer configurada e o contexto de usuário/empresa esperado pelo MCP.
+Os manifests das APIs Auth, PG, Mongo e Import e do worker definem requests e limits de CPU/memória. A Auth API usa o Secret `firebase-admin` fornecido pela configuração da PG API e recebe as credenciais próprias de banco, Firebase e Brevo pelo caminho `/auth-api` no Infisical. O endereço público da Auth API é `https://acta-auth-api.<ip-com-hifens>.sslip.io`; o script de implantação também configura esse endereço em `EXTERNAL_URL` para compor os links do logotipo nos convites. AI e MCP têm Services internos e probes; o AI também é publicado pelo Ingress `acta-ai`. Durante a implantação, `infra/aws/deploy.ps1` deriva os hosts públicos do IP do Terraform e configura `ACTA_MCP_URL` no Deployment do AI para `https://acta-mcp.<ip-com-hifens>.sslip.io/mcp`. O cliente AI envia a chave Bearer configurada e o contexto de usuário/empresa esperado pelo MCP.
 
 O planejamento da infraestrutura e das cotas gratuitas de PostgreSQL, MongoDB, Redis e Qdrant, incluindo as premissas usadas no orçamento AWS Education, está em [`PLANO_DE_CUSTOS.md`](PLANO_DE_CUSTOS.md).
 
@@ -178,6 +179,7 @@ flowchart LR
     OP --> SEC[Kubernetes Secrets]
     SEC --> K3S
 
+    K3S --> AUTH[acta-auth-api]
     K3S --> PG[acta-pg-api]
     K3S --> MG[acta-mongo-api]
     K3S --> AI[acta-ai]
