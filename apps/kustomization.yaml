@@ -7,6 +7,7 @@ resources:
   - ai.yaml
   - mcp.yaml
   - pg-api.yaml
+  - auth-api.yaml
   - mongo-api.yaml
   - import-api.yaml
   - fcm-api.yaml
@@ -15,6 +16,7 @@ resources:
   - config/ai-secrets.yaml
   - config/mcp-secrets.yaml
   - config/pg-api-secrets.yaml
+  - config/auth-api-secrets.yaml
   - config/mongo-api-secrets.yaml
   - config/import-api-secrets.yaml
   - config/fcm-api-secrets.yaml

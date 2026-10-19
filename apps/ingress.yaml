@@ -39,6 +39,30 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
+  name: auth-api
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: acta-auth-api.0-0-0-0.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: acta-auth-api
+                port:
+                  number: 8080
+  tls:
+    - hosts:
+        - acta-auth-api.0-0-0-0.sslip.io
+      secretName: auth-api-tls
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
   name: mongo-api
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
