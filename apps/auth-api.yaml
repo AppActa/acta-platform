@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: acta-auth-api
-          image: ghcr.io/appacta/acta-auth-api:sha-3f0dfde913d27a2e6f6d55bb08df6555e46c3350
+          image: ghcr.io/appacta/acta-auth-api:sha-5fd3af332dfbb0ce4e155f2e1949d3e354c2f54c
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
