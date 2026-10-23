@@ -38,10 +38,10 @@ A estimativa usa o [AWS Pricing Calculator](https://calculator.aws/#/) com a reg
 
 | Variável | Valor usado | Origem ou observação |
 | --- | --- | --- |
-| Data de consulta | 14/10/2026 | Data em que a estimativa foi montada no Calculator e conferida na página oficial de preços da Amazon VPC. |
+| Data de consulta | 23/10/2026 | Data da atualização do cenário EC2 e conferência da referência pública de preço em `us-east-1`; as demais premissas permanecem as estimadas em 14/10/2026. |
 | Conta | `aws-education` (AWS Education) | Conta informada pelo responsável pelo projeto; cota/créditos disponíveis não foram consultados. |
 | Região AWS | `us-east-1` (Leste dos EUA — N. da Virgínia) | Valor informado para `aws_region`. |
-| Tipo de instância | `t3.medium`, Linux, compartilhada, sob demanda | Valor informado para `instance_type`; 2 vCPU e 4 GiB na opção exibida pelo Calculator. |
+| Tipo de instância | `t3.large`, Linux, compartilhada, sob demanda (configuração desejada) | Configurada no Terraform e no `terraform.tfvars` local em relação à `t3.medium` anteriormente usada; mantém 2 vCPU e amplia a memória de 4 para 8 GiB. A alteração na EC2 ainda não foi aplicada. |
 | Quantidade de instâncias | 1 | Uma EC2 K3s conforme a infraestrutura Terraform. |
 | Horas ligadas | 730 horas/mês (100% de utilização) | Mês de referência de 30 dias, sem desligamento programado. |
 | Volume | 30 GiB, SSD de uso geral `gp3` | Volume raiz padrão definido no Terraform; o Calculator incluiu o EBS na estimativa EC2. |
@@ -56,20 +56,26 @@ A estimativa usa o [AWS Pricing Calculator](https://calculator.aws/#/) com a reg
 
 | Item | Estimativa mensal (USD) | Como foi calculado |
 | --- | ---: | --- |
-| EC2 `t3.medium` sob demanda | 30,37 | Resultado visível no AWS Pricing Calculator: US$ 0,0416/h × 730 h. |
+| EC2 `t3.large` sob demanda | 60,74 | US$ 0,0832/h × 730 h; preço público de referência para Linux sob demanda em `us-east-1`. |
 | EBS `gp3`, 30 GiB | 2,40 | Resultado incluído pelo Calculator após configurar o volume raiz de 30 GiB. |
 | Saída para Internet, 10 GB | 0,90 | Resultado do Calculator ao inserir 10 GB/mês como transferência de saída. |
 | IPv4 público do Elastic IP, 730 h | 3,65 | 730 h × US$ 0,005/h, conforme [preços da Amazon VPC](https://aws.amazon.com/vpc/pricing/). |
-| **Total AWS estimado** | **37,32** | Soma dos itens acima; preço público antes de créditos/descontos. |
-| **Margem até US$ 50** | **12,68** | Não cobre outros serviços ativos, tráfego acima da premissa, snapshots, impostos ou taxas. |
+| **Total AWS estimado** | **67,69** | Soma dos itens acima; cenário com `t3.large`, antes de créditos/descontos. |
+| **Diferença para o teto de US$ 50** | **−17,69** | O cenário excede o teto de referência antes de considerar outros serviços ativos, tráfego acima da premissa, snapshots, impostos ou taxas. |
 | Neon, Atlas, Upstash e Qdrant Free | 0,00 | Condicionado à permanência dentro das cotas gratuitas de cada serviço. |
 
-O resultado de **US$ 33,67/mês** exibido no Calculator cobre EC2, EBS e a saída estimada. O IPv4 público é uma parcela adicional calculada pela tarifa oficial da VPC, pois foi configurado como Elastic IP no Terraform. A linha de IPv4 é uma estimativa conservadora de preço de lista: confirme a cobrança aplicável e eventuais créditos no ambiente AWS Education. O teto de US$ 50 vale para a conta inteira; não se pode concluir que ele será respeitado antes de inventariar os demais serviços ativos.
+O cenário com `t3.large` eleva a estimativa para **US$ 67,69/mês**, incluindo EC2, EBS, saída estimada e IPv4 público. A EC2 custa aproximadamente **US$ 30,37/mês a mais** que `t3.medium` (diferença de US$ 0,0416/h × 730 h), e o total ultrapassa o teto de referência de US$ 50. São preços públicos antes de créditos/descontos; confirme os créditos disponíveis e a cobrança aplicável no ambiente AWS Education. O total real também depende dos demais serviços ativos.
+
+### Capacidade e réplicas dos serviços
+
+Uma leitura pontual do nó K3s em 23/10/2026 mostrou `t3.medium` com CPU em 7% e memória em 78% (3.016 MiB usados). A leitura embasou a configuração de `t3.large` (2 vCPU e 8 GiB), antes de considerar `t3.xlarge`; ela não substitui o acompanhamento de métricas ao longo do tempo.
+
+`acta-auth-api`, `acta-pg-api`, `acta-mongo-api` e `acta-fcm-api` estão configurados com duas réplicas. Elas compartilham o mesmo nó, não acrescentam custo de instância EC2 e não fornecem alta disponibilidade contra falha da máquina. Mantenha `acta-import-worker` em uma réplica até confirmar que o processamento evita duplicidade. Os manifests de `acta-ai` e `acta-mcp` definem requests de `100m` CPU e `256Mi` de memória, com limits de `500m` e `512Mi`; continuam com uma réplica até que o consumo seja acompanhado e a capacidade disponível confirmada.
 
 ### Como reproduzir e manter o orçamento
 
 1. Abra o [AWS Pricing Calculator](https://calculator.aws/#/) e escolha região **US East (N. Virginia) / `us-east-1`**.
-2. Adicione **Amazon EC2**: Linux, instância compartilhada, `t3.medium`, uma instância, uso constante e 100%/730 h por mês, preço sob demanda.
+2. Adicione **Amazon EC2**: Linux, instância compartilhada, `t3.large`, uma instância, uso constante e 100%/730 h por mês, preço sob demanda.
 3. Inclua o armazenamento EBS no EC2: SSD de uso geral `gp3`, 30 GiB, sem snapshots recorrentes.
 4. No bloco de transferência de dados do EC2, registre 10 GB por mês de saída para Internet. Atualize esse volume com medições reais quando existirem.
 5. Considere um IPv4 público/Elastic IP por 730 horas usando a tarifa da Amazon VPC indicada na tabela; mantenha os demais IPs públicos e recursos de rede em zero somente se o inventário confirmar isso.
@@ -84,4 +90,4 @@ O AWS Education pode oferecer créditos, cotas ou limites próprios do curso/lab
 - [MongoDB Atlas Free Cluster Limits](https://www.mongodb.com/docs/atlas/reference/free-shared-limitations/).
 - [Upstash Redis Pricing](https://upstash.com/pricing/redis).
 - [Qdrant Cloud — criação e limites de clusters](https://qdrant.tech/documentation/cloud/create-cluster/).
-- [AWS Pricing Calculator](https://calculator.aws/#/), [EC2 On-Demand](https://aws.amazon.com/ec2/pricing/on-demand/), [EBS Pricing](https://aws.amazon.com/ebs/pricing/) e [Amazon VPC Pricing — IPv4 público](https://aws.amazon.com/vpc/pricing/).
+- [AWS Pricing Calculator](https://calculator.aws/#/), [EC2 On-Demand](https://aws.amazon.com/ec2/pricing/on-demand/), [referência de preço T3 em `us-east-1`](https://docs.aws.amazon.com/prescriptive-guidance/latest/optimize-costs-microsoft-workloads/right-size-selection.html), [EBS Pricing](https://aws.amazon.com/ebs/pricing/) e [Amazon VPC Pricing — IPv4 público](https://aws.amazon.com/vpc/pricing/).

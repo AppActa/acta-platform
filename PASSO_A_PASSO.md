@@ -123,7 +123,7 @@ Crie `infra/aws/terraform.tfvars` localmente. Substitua todos os placeholders an
 aws_region    = "<regiao-aws>"
 key_name      = "<nome-do-key-pair>"
 admin_cidr    = "<seu-ip-publico>/32"
-instance_type = "t3.medium"
+instance_type = "t3.large"
 ```
 
 O Key Pair precisa existir na mesma região. Coloque a chave privada correspondente em `.aws/labsuser.pem`, caminho esperado pelo script de deploy. Restrinja permissões do arquivo à sua conta de usuário. `terraform.tfvars`, estado e chave são arquivos locais ignorados pelo Git.

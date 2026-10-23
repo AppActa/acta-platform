@@ -58,7 +58,7 @@ Crie `infra/aws/terraform.tfvars` somente no ambiente local:
 aws_region   = "sa-east-1"
 key_name     = "nome-do-key-pair"
 admin_cidr   = "203.0.113.10/32"
-instance_type = "t3.medium"
+instance_type = "t3.large"
 ```
 
 O arquivo `terraform.tfvars`, estados, planos, credenciais AWS e chaves privadas são ignorados pelo Git. Nunca versione esses arquivos.
