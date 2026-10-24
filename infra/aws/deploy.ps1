@@ -1,6 +1,7 @@
 # para o script se algum comando falhar
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
+$keyPath = Join-Path $env:USERPROFILE ".aws\labsuser.pem"
 
 # confirma a conta da AWS antes de criar os recursos
 aws sts get-caller-identity
@@ -8,16 +9,16 @@ aws sts get-caller-identity
 # prepara o terraform e mostra o que será criado
 Push-Location .\infra\aws
 try {
-    terraform init
-    terraform validate
-    terraform plan
+    terraform init -input=false -no-color
+    terraform validate -no-color
+    terraform plan -input=false -no-color
 
     if ((Read-Host "Digite APLICAR para criar os recursos na AWS") -cne "APLICAR") {
         Write-Host "Implantacao cancelada"
         exit
     }
 
-    terraform apply -auto-approve
+    terraform apply -input=false -no-color -auto-approve
     $publicIp = (terraform output -raw public_ip).Trim()
 }
 finally {
@@ -34,13 +35,13 @@ do {
 
 # instala k3s, argocd, cert-manager e infisical
 Get-Content .\infra\aws\bootstrap-k3s.sh -Raw |
-    ssh -i .\.aws\labsuser.pem -o StrictHostKeyChecking=accept-new "ubuntu@$publicIp" "sudo bash -s"
+    ssh -i "$keyPath" -o StrictHostKeyChecking=accept-new "ubuntu@$publicIp" "sudo bash -s"
 
 # baixa o kubeconfig para controlar o cluster pelo computador
 $kubeconfigPath = Join-Path $env:USERPROFILE ".kube\acta-aws.yaml"
 New-Item (Split-Path $kubeconfigPath) -ItemType Directory -Force | Out-Null
 
-$kubeconfig = ssh -i .\.aws\labsuser.pem "ubuntu@$publicIp" "sudo cat /etc/rancher/k3s/k3s.yaml"
+$kubeconfig = ssh -i "$keyPath" "ubuntu@$publicIp" "sudo cat /etc/rancher/k3s/k3s.yaml"
 $kubeconfig.Replace("https://127.0.0.1:6443", "https://${publicIp}:6443") |
     Set-Content $kubeconfigPath -Encoding utf8
 
@@ -69,6 +70,7 @@ $secretManifest = @{
 $secretManifest | kubectl apply -f -
 $secretManifest = $null
 $credential = $null
+$clientId = $null
 $secureClientSecret = $null
 
 # entrega os manifests das aplicações para o Argo CD
@@ -130,7 +132,15 @@ $applicationPatch = @{
     }
 } | ConvertTo-Json -Depth 8 -Compress
 
-kubectl patch application acta-prod -n argocd --type merge --patch $applicationPatch
+# aplica o patch usando um arquivo temporario o remove em seguida
+$applicationPatchPath = Join-Path $env:TEMP "acta-application-patch-$PID.json"
+try {
+    [IO.File]::WriteAllText($applicationPatchPath, $applicationPatch, [Text.UTF8Encoding]::new($false))
+    kubectl patch application acta-prod -n argocd --type merge --patch-file $applicationPatchPath
+}
+finally {
+    Remove-Item -LiteralPath $applicationPatchPath -Force -ErrorAction SilentlyContinue
+}
 kubectl wait application/acta-prod -n argocd --for=jsonpath='{.status.sync.status}'=Synced --timeout=5m
 
 # espera as apis, o worker e os certificados ficarem prontos

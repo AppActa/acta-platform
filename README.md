@@ -105,7 +105,7 @@ O script:
 7. aguarda sincronização, workloads e certificados;
 8. consulta os endpoints públicos da Auth API, PG API, Mongo API, Import API e a rota `/health` do MCP e exibe o endereço `/mcp` do MCP.
 
-O kubeconfig obtido do servidor é salvo em `~/.kube/acta-aws.yaml`. A chave privada esperada pelo script fica em `.aws/labsuser.pem`; esse caminho é local e está ignorado pelo Git.
+O kubeconfig obtido do servidor é salvo em `~/.kube/acta-aws.yaml`. A chave privada esperada pelo script fica em `$env:USERPROFILE\.aws\labsuser.pem`; esse caminho é local e está ignorado pelo Git.
 
 ## 🔄 Fluxo GitOps e contribuição
 
