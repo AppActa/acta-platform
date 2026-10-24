@@ -126,13 +126,13 @@ admin_cidr    = "<seu-ip-publico>/32"
 instance_type = "t3.large"
 ```
 
-O Key Pair precisa existir na mesma região. Coloque a chave privada correspondente em `.aws/labsuser.pem`, caminho esperado pelo script de deploy. Restrinja permissões do arquivo à sua conta de usuário. `terraform.tfvars`, estado e chave são arquivos locais ignorados pelo Git.
+O Key Pair precisa existir na mesma região. Coloque a chave privada correspondente em `$env:USERPROFILE\.aws\labsuser.pem`, caminho esperado pelo script de deploy. Restrinja permissões do arquivo à sua conta de usuário. `terraform.tfvars`, estado e chave são arquivos locais ignorados pelo Git.
 
 Confira seu IP público por um meio confiável e use somente esse endereço com sufixo `/32`; não libere SSH ou API Kubernetes para `0.0.0.0/0`.
 
 ## 3. Revisar e aplicar a infraestrutura
 
-O script executa `aws sts get-caller-identity`, inicializa e valida Terraform, mostra o plano e pede a confirmação literal `APLICAR`. Antes de iniciar, confirme que a chave privada está em `.aws/labsuser.pem`, pois este caminho está fixo no script. Na raiz do repositório:
+O script executa `aws sts get-caller-identity`, inicializa e valida Terraform, mostra o plano e pede a confirmação literal `APLICAR`. Antes de iniciar, confirme que a chave privada está em `$env:USERPROFILE\.aws\labsuser.pem`, pois este caminho está fixo no script. Na raiz do repositório:
 
 ```powershell
 .\infra\aws\deploy.ps1
