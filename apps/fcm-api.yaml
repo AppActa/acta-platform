@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: acta-fcm-api
-          image: ghcr.io/appacta/acta-fcm-api:sha-81f21af8b285f586e998b26741905e295c425ce3
+          image: ghcr.io/appacta/acta-fcm-api:sha-cd5b04dbbec4ff248226023389c9dbe182e0046a
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
