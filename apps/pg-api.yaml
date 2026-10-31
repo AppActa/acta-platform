@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: acta-pg-api
-          image: ghcr.io/appacta/acta-pg-api:sha-a7f2361f097efbfade707ffb3c7ff551472885b2
+          image: ghcr.io/appacta/acta-pg-api:sha-856dee786d4c2ae5a84a4a79d18c39dd38b51d21
           imagePullPolicy: IfNotPresent
 
           ports:
