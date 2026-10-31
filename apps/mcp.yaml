@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: acta-mcp
-          image: ghcr.io/appacta/acta-mcp:sha-cb9fc0bef4c38045b6a1014914185c222a9379f1
+          image: ghcr.io/appacta/acta-mcp:sha-8818a0f903e6b53e34649e7970967992d616a3b8
           imagePullPolicy: IfNotPresent
 
           ports:
