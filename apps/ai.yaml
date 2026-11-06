@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: acta-ai
-          image: ghcr.io/appacta/acta-ai:sha-6958e102d9ffa13404badddfd728a83e100b0d3f
+          image: ghcr.io/appacta/acta-ai:sha-f3c92472060822963a2e53856b717764504e82a0
           imagePullPolicy: IfNotPresent
 
           ports:
